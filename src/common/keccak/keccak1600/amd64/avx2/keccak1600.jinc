@@ -82,7 +82,7 @@ inline fn __add_final_block_avx2(
   reg   u8  trail_byte,
   reg   u64 rate,
   reg u64 ms
-) -> reg u256[7]
+) -> reg u256[7], #msf reg u64
 {
   inline int i;
   reg u64 j l t inlen8;
@@ -140,7 +140,7 @@ inline fn __add_final_block_avx2(
   for i = 0 to 7
   { state[i] ^= s_state[u256 i]; }
 
-  return state;
+  return state, ms;
 }
 
 
@@ -151,7 +151,7 @@ inline fn __xtr_full_block_avx2(
   reg u64 out,
   reg u64 len,
   reg u64 ms
-) -> reg u64
+) -> reg u64, reg u64
 {
   inline int i;
   stack u64[28] s_state;
@@ -178,7 +178,7 @@ inline fn __xtr_full_block_avx2(
 
   out += len;
 
-  return out;
+  return out, ms;
 }
 
 
@@ -238,7 +238,7 @@ inline fn __absorb_avx2(
   reg u8  trail_byte,
   reg u64 rate,
   reg u64 ms
-) -> reg u256[7]
+) -> reg u256[7], #msf reg u64
 {
   stack u64[28] s_state;
   reg ptr u64[25] a_jagged_p;
@@ -257,9 +257,9 @@ inline fn __absorb_avx2(
   ms = #set_msf(!b, ms);
 
   // final block
-  state = __add_final_block_avx2(state, s_state, a_jagged_p, in, inlen, trail_byte, rate, ms);
+  state, ms = __add_final_block_avx2(state, s_state, a_jagged_p, in, inlen, trail_byte, rate, ms);
 
-  return state;
+  return state, ms;
 }
 
 
@@ -275,7 +275,7 @@ inline fn __squeeze_avx2(reg u256[7] state, reg u64 out outlen rate ms)
   {
     ms = #set_msf(b, ms);
     state, ms = __keccakf1600_avx2(state, ms);
-    out = __xtr_full_block_avx2(state, a_jagged_p, out, rate, ms);
+    out, ms = __xtr_full_block_avx2(state, a_jagged_p, out, rate, ms);
     outlen -= rate;
   }
   ms = #set_msf(!b, ms);
@@ -292,7 +292,7 @@ inline fn __keccak1600_avx2(reg u64 out outlen in inlen, reg u8 trail_byte, reg 
   state = __keccak_init_avx2();
 
   // absorb
-  state = __absorb_avx2(state, in, inlen, trail_byte, rate, ms);
+  state, ms = __absorb_avx2(state, in, inlen, trail_byte, rate, ms);
 
   // squeeze
   __squeeze_avx2(state, out, outlen, rate, ms);
