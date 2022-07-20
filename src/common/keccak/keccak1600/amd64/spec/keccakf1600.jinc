@@ -146,19 +146,16 @@ inline fn __keccakP1600_round_spec(stack u64[25] state, reg u64 c) -> stack u64[
 
 inline fn __keccakf1600_spec(stack u64[25] state) -> stack u64[25]
 {
-  reg u64 round RC;
+  reg u64 RC;
   reg ptr u64[24] kRCp;
+  inline int i;
 
   kRCp = KECCAK1600_RC;
-  round = 0;
-  while(round < 24)
+  for i = 0 to 24
   {
-    RC = kRCp[(int) round];
+    RC = kRCp[i];
     state = __keccakP1600_round_spec(state, RC);
-    round += 1;
   }
 
   return state;
 }
-
-
