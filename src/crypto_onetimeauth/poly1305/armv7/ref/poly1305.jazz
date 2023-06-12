@@ -1,0 +1,195 @@
+fn add(reg ptr u32[17] h c) -> reg ptr u32[17] {
+  inline int j;
+  reg u32 u t;
+  u = 0;
+  for j = 0 to 17 {
+    t = h[j];
+    u += t;
+    t = c[j];
+    u += t;
+    t = u;
+    t &= 0xff;
+    h[j] = t;
+    u >>= 8;
+  }
+  return h;
+}
+
+u32[17] minusp = { 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 252 };
+
+fn freeze(reg ptr u32[17] h) -> reg u32[17] {
+  stack u32[17] horig;
+  reg u32 tmp negative;
+  inline int j;
+  for j = 0 to 17 {
+    tmp = h[j];
+    horig[j] = tmp;
+  }
+  h = add(h, minusp);
+  negative = h[16];
+  negative >>= 7;
+  negative = #RSB(negative, 0);
+  for j = 0 to 17 {
+    reg u32 a b;
+    a = h[j];
+    b = horig[j];
+    b ^= a;
+    b &= negative;
+    a ^= b;
+    h[j] = a;
+  }
+  return h;
+}
+
+inline
+fn squeeze_aux(reg ptr u32[17] h, reg u32 u) -> reg ptr u32[17], reg u32 {
+  inline int j;
+  reg u32 t;
+  for j = 0 to 16 {
+    t = h[j];
+    u += t;
+    t = u;
+    t &= 0xff;
+    h[j] = t;
+    u >>= 8;
+  }
+  return h, u;
+}
+
+fn squeeze(reg ptr u32[17] h) -> reg ptr u32[17] {
+  reg u32 u t;
+  u = 0;
+  h, u = squeeze_aux(h, u);
+  t = h[16];
+  u += t;
+  t = u;
+  t &= 3;
+  h[16] = t;
+  u >>= 2;
+  u += u << 2;
+  h, u = squeeze_aux(h, u);
+  t = h[16];
+  u += t;
+  h[16] = u;
+  return h;
+}
+
+fn mulmod(reg ptr u32[17] h r) -> reg ptr u32[17] {
+  stack u32[17] hr;
+  reg u32 u tmp;
+  inline int i j;
+  for i = 0 to 17 {
+    u = 0;
+    for j = 0 to i + 1 {
+      reg u32 a b;
+      a = h[j];
+      b = r[i - j];
+      a *= b;
+      u += a;
+    }
+    for j = i + 1 to 17 {
+      reg u32 a b;
+      a = h[j];
+      b = r[i + 17 - j];
+      a *= b;
+      a += a << 2;
+      a <<= 6;
+      u += a;
+    }
+    hr[i] = u;
+  }
+  for i = 0 to 17 {
+    tmp = hr[i];
+    h[i] = tmp;
+  }
+  h = squeeze(h);
+  return h;
+}
+
+export
+fn poly1305_ref(reg u32 out in inlen k) -> reg u32 {
+  stack u32[17] r h c;
+  reg u32 tmp;
+  inline int j;
+
+  // Read & clamp the key
+
+  for j = 0 to 16 {
+    tmp = (32u)(u8)[k + j];
+    if j % 4 == 3 {
+      tmp &= 15;
+    } else if j == 4 || j == 8 || j == 12 {
+      tmp &= 252;
+    }
+    r[j] = tmp;
+  }
+  tmp = 0;
+  r[16] = tmp;
+
+  for j = 0 to 17 {
+    h[j] = tmp;
+  }
+
+  // Main loop
+  reg ptr u32[17] cp;
+  reg u32 pos;
+  cp = c;
+  pos = 0;
+  while (inlen > 16) {
+    for j = 0 to 16 {
+      tmp = (32u)(u8)[in + pos];
+      pos += 1;
+      cp[j] = tmp;
+    }
+    tmp = 1;
+    cp[16] = tmp;
+    inlen -= 16;
+    h = add(h, cp);
+    h = mulmod(h, r);
+  }
+
+  // Last block
+  if inlen > 0 {
+    reg u32 i;
+    i = 0;
+    while (i < inlen) {
+      tmp = (32u)(u8)[in + pos];
+      pos += 1;
+      cp[(int) i] = tmp;
+      i += 1;
+    }
+    tmp =   1;
+    cp[(int) i] = tmp;
+    i += 1;
+    while (i < 17) {
+      tmp = 0;
+      cp[(int) i] = tmp;
+      i += 1;
+    }
+    h = add(h, cp);
+    h = mulmod(h, r);
+  }
+
+  h = freeze(h);
+
+  // Read the nonce
+
+  for j = 0 to 16 {
+    tmp = (32u)(u8)[k + 16 + j];
+    c[j] = tmp;
+  }
+  tmp = 0;
+  c[16] = tmp;
+
+  h = add(h, c);
+
+  // Write the result
+
+  reg u32 r;
+  for j = 0 to 16 {
+    tmp = h[j];
+    (u8)[out + j] = tmp;
+  }
+  r = 0;
+  return r;
+}
