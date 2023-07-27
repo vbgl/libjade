@@ -27,7 +27,7 @@ fn freeze(reg ptr u32[17] h) -> reg u32[17] {
   h = add(h, minusp);
   negative = h[16];
   negative >>= 7;
-  negative = #RSB(negative, 0);
+  negative = -negative;
   for j = 0 to 17 {
     reg u32 a b;
     a = h[j];
