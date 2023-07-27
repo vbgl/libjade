@@ -7,8 +7,7 @@ fn add(reg ptr u32[17] h c) -> reg ptr u32[17] {
     u += t;
     t = c[j];
     u += t;
-    t = u;
-    t &= 0xff;
+    t = u & 0xff;
     h[j] = t;
     u >>= 8;
   }
@@ -48,8 +47,7 @@ fn squeeze_aux(reg ptr u32[17] h, reg u32 u) -> reg ptr u32[17], reg u32 {
   for j = 0 to 16 {
     t = h[j];
     u += t;
-    t = u;
-    t &= 0xff;
+    t = u & 0xff;
     h[j] = t;
     u >>= 8;
   }
@@ -62,8 +60,7 @@ fn squeeze(reg ptr u32[17] h) -> reg ptr u32[17] {
   h, u = squeeze_aux(h, u);
   t = h[16];
   u += t;
-  t = u;
-  t &= 3;
+  t = u & 3;
   h[16] = t;
   u >>= 2;
   u += u << 2;
